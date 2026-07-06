@@ -13,6 +13,8 @@ services:
       - whisper-models:/models
     networks:
       - hermes-net
+    ports:
+      - "9000:9000"
 
   hermes-mouth:
     build: ./hub/mouth
@@ -24,6 +26,8 @@ services:
       - piper-voices:/voices
     networks:
       - hermes-net
+    ports:
+      - "9001:9001"
 
   hermes-voice-bridge:
     build: ./hub/bridge
@@ -40,10 +44,13 @@ services:
       - "18000:8000"   # reachable over Tailscale by every satellite (8000 taken locally)
     networks:
       - hermes-net
+      - stackdeploy-backend
 
 networks:
   hermes-net:
     driver: bridge
+  stackdeploy-backend:
+    external: true
 
 volumes:
   whisper-models:

@@ -1,10 +1,10 @@
 import os
-from functools import lru_cache
 
 import httpx
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import Response
 from honcho import Honcho
+from honcho.api_types import SessionPeerConfig
 
 EARS_URL = os.getenv("EARS_URL", "http://hermes-ears:9000")
 MOUTH_URL = os.getenv("MOUTH_URL", "http://hermes-mouth:9001")
@@ -32,7 +32,7 @@ app = FastAPI(title="hermes-voice-bridge")
 _honcho = None
 user_peer = None
 assistant_peer = None
-_initialized_sessions: set[str] = set(set())
+_initialized_sessions: set[str] = set()
 
 
 def _get_honcho() -> Honcho:
@@ -56,8 +56,8 @@ def get_session(satellite_id: str):
     if satellite_id not in _initialized_sessions:
         session.add_peers(
             [
-                (user_peer, {"observe_me": True, "observe_others": True}),
-                (assistant_peer, {"observe_me": False, "observe_others": True}),
+                (user_peer, SessionPeerConfig(observe_me=True, observe_others=True)),
+                (assistant_peer, SessionPeerConfig(observe_me=False, observe_others=True)),
             ]
         )
         _initialized_sessions.add(satellite_id)
@@ -85,13 +85,20 @@ async def handle_utterance(satellite_id: str = "default", file: UploadFile = Fil
         if not text:
             return Response(status_code=204)
 
-        # 2. Honcho: log the utterance, pull prompt-ready context.
-        session = get_session(satellite_id)
-        session.add_messages([user_peer.message(text)])
-
-        context = session.context(tokens=CONTEXT_TOKENS)
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-        messages.extend(context.to_openai(assistant=assistant_peer))
+        # 2. Best-effort Honcho memory/logging. If Honcho is unavailable,
+        #    degrade gracefully instead of failing the whole pipeline.
+        session = None
+        messages: list[dict[str, str]] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        if HONCHO_URL:
+            try:
+                session = get_session(satellite_id)
+                session.add_messages([user_peer.message(text)])
+                context = session.context(tokens=CONTEXT_TOKENS)
+                messages.extend(context.to_openai(assistant=assistant_peer))
+            except Exception as exc:  # noqa: BLE001
+                print(f"[honcho-degraded] {exc!r}")
+                session = None
+                messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
         # 3. Ask your Hermes agent on the VPS (OpenAI-compatible endpoint)
         headers = {"Authorization": f"Bearer {HERMES_API_KEY}"} if HERMES_API_KEY else {}
@@ -107,8 +114,12 @@ async def handle_utterance(satellite_id: str = "default", file: UploadFile = Fil
         chat_resp.raise_for_status()
         reply_text = chat_resp.json()["choices"][0]["message"]["content"]
 
-        # 4. Store the reply so future turns (any room) have it as context
-        session.add_messages([assistant_peer.message(reply_text)])
+        # 4. Store the reply best-effort so future turns have it as context
+        if session is not None:
+            try:
+                session.add_messages([assistant_peer.message(reply_text)])
+            except Exception as exc:  # noqa: BLE001
+                print(f"[honcho-degraded] {exc!r}")
 
         # 5. Text-to-speech
         tts_resp = await client.post(f"{MOUTH_URL}/synthesize", json={"text": reply_text})
