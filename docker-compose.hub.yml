@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  hermes-ears:
+    build: ./hub/ears
+    container_name: hermes-ears
+    restart: unless-stopped
+    environment:
+      - WHISPER_MODEL=${WHISPER_MODEL:-small.en}
+      - WHISPER_DEVICE=${WHISPER_DEVICE:-cpu}
+      - WHISPER_COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-int8}
+    volumes:
+      - whisper-models:/models
+    networks:
+      - hermes-net
+
+  hermes-mouth:
+    build: ./hub/mouth
+    container_name: hermes-mouth
+    restart: unless-stopped
+    environment:
+      - PIPER_VOICE=${PIPER_VOICE:-en_US-lessac-medium}
+    volumes:
+      - piper-voices:/voices
+    networks:
+      - hermes-net
+
+  hermes-voice-bridge:
+    build: ./hub/bridge
+    container_name: hermes-voice-bridge
+    restart: unless-stopped
+    depends_on:
+      - hermes-ears
+      - hermes-mouth
+    env_file: .env
+    environment:
+      - EARS_URL=http://hermes-ears:9000
+      - MOUTH_URL=http://hermes-mouth:9001
+    ports:
+      - "18000:8000"   # reachable over Tailscale by every satellite (8000 taken locally)
+    networks:
+      - hermes-net
+
+networks:
+  hermes-net:
+    driver: bridge
+
+volumes:
+  whisper-models:
+  piper-voices:

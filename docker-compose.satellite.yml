@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  hermes-wake:
+    build: ./satellite
+    container_name: hermes-wake
+    restart: unless-stopped
+    devices:
+      - /dev/snd:/dev/snd
+    environment:
+      - BRIDGE_URL=${BRIDGE_URL}
+      - WAKE_MODEL=${WAKE_MODEL:-hey_jarvis}
+      - SATELLITE_ID=${SATELLITE_ID:-satellite-1}
+    network_mode: host   # simplest path for ALSA + reaching the hub over Tailscale
