@@ -45,6 +45,8 @@ services:
     networks:
       - hermes-net
       - stackdeploy-backend
+    volumes:
+      - ./hub/dashboard:/app/dashboard:ro
 
 networks:
   hermes-net:

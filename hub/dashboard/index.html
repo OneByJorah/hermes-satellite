@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes Satellite — Hub</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+  :root{
+    --bg:#05080f;--panel:rgba(10,18,28,0.85);--panel-border:#1f2d3d;
+    --amber:#FFB300;--amber-dim:#806010;--text:#e8f4ff;--muted:#8aa3b3;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.45 'JetBrains Mono',monospace}
+  .wrap{max-width:860px;margin:0 auto;padding:28px 20px}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  h1{font-size:18px;margin:0;color:var(--amber)}
+  .badge{font-size:11px;background:rgba(255,179,0,.12);border:1px solid rgba(255,179,0,.35);color:var(--amber);padding:4px 8px;border-radius:999px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:720px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--panel-border);padding:16px;border-radius:12px}
+  .card h2{margin:0 0 8px;font-size:13px;color:var(--muted);font-weight:400;letter-spacing:.08em;text-transform:uppercase}
+  .status{margin:0;font-size:22px;font-weight:700}
+  .ok{color:#4ade80}.err{color:#ff4d4d}
+  .row{margin-top:10px;display:flex;gap:10px;flex-wrap:wrap}
+  .kbd{background:rgba(255,255,255,.06);border:1px solid var(--panel-border);padding:6px 8px;border-radius:8px;font-size:12px;color:#cfe6ff}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Hermes Satellite · Hub</h1>
+    <div class="badge" id="ws">workspace: —</div>
+  </header>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Bridge</h2>
+      <p class="status" id="bridge-status">…</p>
+      <div class="row">
+        <span class="kbd" id="bridge-url">/health</span>
+        <span class="kbd" id="bridge-honcho">honcho: —</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Ears</h2>
+      <p class="status" id="ears-status">…</p>
+      <div class="row">
+        <span class="kbd" id="ears-url">/health</span>
+        <span class="kbd" id="ears-model">model: —</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Mouth</h2>
+      <p class="status" id="mouth-status">…</p>
+      <div class="row">
+        <span class="kbd" id="mouth-url">/health</span>
+        <span class="kbd" id="mouth-voice">voice: —</span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(async function(){
+  const ws=document.getElementById('ws');
+  ws.textContent='workspace: local';
+  const set=(id,text,ok)=>{const el=document.getElementById(id);el.textContent=text;el.className='status '+(ok?'ok':'err')};
+  try{
+    const b=await fetch('/health').then(r=>r.json());
+    set('bridge-status', b.status==='ok'?'OK':'DOWN', b.status==='ok');
+    document.getElementById('bridge-honcho').textContent='honcho: '+(b.honcho?'on':'off');
+  }catch(e){set('bridge-status','UNREACHABLE',false)}
+  try{
+    const e=await fetch('http://localhost:9000/health').then(r=>r.json());
+    set('ears-status', e.status==='ok'?'OK':'DOWN', e.status==='ok');
+    document.getElementById('ears-model').textContent='model: '+(e.model||'—');
+  }catch(e){set('ears-status','UNREACHABLE',false)}
+  try{
+    const m=await fetch('http://localhost:9001/health').then(r=>r.json());
+    set('mouth-status', m.status==='ok'?'OK':'DOWN', m.status==='ok');
+    document.getElementById('mouth-voice').textContent='voice: '+(m.voice||'—');
+  }catch(e){set('mouth-status','UNREACHABLE',false)}
+})();
+</script>
+</body>
+</html>

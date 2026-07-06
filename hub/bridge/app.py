@@ -2,7 +2,8 @@ import os
 
 import httpx
 from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from honcho import Honcho
 from honcho.api_types import SessionPeerConfig
 
@@ -28,11 +29,18 @@ SYSTEM_PROMPT = (
 
 app = FastAPI(title="hermes-voice-bridge")
 
+# Dashboard
+app.mount("/dashboard", StaticFiles(directory="/app/dashboard", html=True), name="dashboard")
+
+@app.get("/")
+def root():
+    return RedirectResponse("/dashboard/")
+
 # Lazy Honcho so /health works even when Honcho VM is unreachable.
 _honcho = None
 user_peer = None
 assistant_peer = None
-_initialized_sessions: set[str] = set()
+_initialized_sessions: set[str] = set(set())
 
 
 def _get_honcho() -> Honcho:
@@ -85,8 +93,7 @@ async def handle_utterance(satellite_id: str = "default", file: UploadFile = Fil
         if not text:
             return Response(status_code=204)
 
-        # 2. Best-effort Honcho memory/logging. If Honcho is unavailable,
-        #    degrade gracefully instead of failing the whole pipeline.
+        # 2. Best-effort Honcho memory/logging.
         session = None
         messages: list[dict[str, str]] = [{"role": "system", "content": SYSTEM_PROMPT}]
         if HONCHO_URL:
@@ -100,7 +107,7 @@ async def handle_utterance(satellite_id: str = "default", file: UploadFile = Fil
                 session = None
                 messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
-        # 3. Ask your Hermes agent on the VPS (OpenAI-compatible endpoint)
+        # 3. Ask your Hermes agent on the VPS
         headers = {"Authorization": f"Bearer {HERMES_API_KEY}"} if HERMES_API_KEY else {}
         chat_resp = await client.post(
             HERMES_API_URL,
@@ -114,7 +121,7 @@ async def handle_utterance(satellite_id: str = "default", file: UploadFile = Fil
         chat_resp.raise_for_status()
         reply_text = chat_resp.json()["choices"][0]["message"]["content"]
 
-        # 4. Store the reply best-effort so future turns have it as context
+        # 4. Store the reply best-effort
         if session is not None:
             try:
                 session.add_messages([assistant_peer.message(reply_text)])
