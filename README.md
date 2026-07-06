@@ -1,106 +1,77 @@
-# hermes-satellite
+<!-- j1-brand:v2 -->
+<div align="center">
 
-Self-hosted, Jarvis-style wake-word voice pipeline that bridges to your existing
-Hermes agent (VPS). No Home Assistant, no cloud STT/TTS — everything runs over
-Tailscale.
+# Hermes Satellite
+
+A self-hosted, Jarvis-style wake-word voice pipeline that bridges edge audio devices to your Hermes agent over Tailscale — no Home Assistant, no cloud STT/TTS.
+
+[![GitHub](https://img.shields.io/badge/github-OneByJorah%2Fhermes--satellite-FFB300?style=for-the-badge&labelColor=0d0d0c)](https://github.com/OneByJorah/hermes-satellite)
+[![License](https://img.shields.io/badge/license-MIT-FFB300?style=for-the-badge&labelColor=0d0d0c)](LICENSE)
+[![Language](https://img.shields.io/badge/Python-FFB300?style=for-the-badge&labelColor=0d0d0c)](https://python.org)
+[![Built by](https://img.shields.io/badge/built%20by-JorahOne%20LLC-FFB300?style=for-the-badge&labelColor=0d0d0c)](https://github.com/OneByJorah)
+
+</div>
+
+---
+
+## Why This Exists
+
+Voice assistants today either lock you into a cloud ecosystem (Alexa, Google Home) or require complex Home Automation hubs. Hermes Satellite gives you a privacy-first alternative: wake-word detection happens on a Raspberry Pi at the edge, audio is only transmitted after the wake word fires, and everything — STT, LLM inference, TTS — routes over Tailscale to your own Hermes hub. No data leaves your network.
+
+## Key Features
+
+| Feature | Why It Matters |
+|---|---|
+| Edge-based wake-word detection (openWakeWord) | Audio never leaves the satellite until you speak the wake word |
+| Faster-Whisper for local STT | Runs on CPU with int8 quantization — no GPU required |
+| Piper TTS | Lightweight, offline text-to-speech |
+| Hermes VPS integration | Plugs into your existing LLM backend for natural conversation |
+| Multi-satellite support | Each satellite gets a unique ID; Honcho maintains separate conversation threads per device |
+| Tailscaled networking | Zero-config mesh VPN — no open ports, no reverse proxies |
+
+## Quick Start
+
+```bash
+git clone https://github.com/OneByJorah/hermes-satellite.git
+cd hermes-satellite
+
+# Hub deployment
+cp .env.example .env   # configure HUB_API_KEY, HERMES_VPS_URL, etc.
+docker compose up -d
+
+# Satellite deployment (on each Pi)
+cp satellite/.env.example satellite/.env   # set unique SATELLITE_ID
+docker compose -f satellite/docker-compose.yml up -d
+```
 
 ## Architecture
 
 ```
-Pi satellite(s)                         Hub (homelab box)
-┌────────────────┐  wav (post-wake)   ┌──────────────────────────────┐
-│ hermes-wake     │ ─────────────────▶│ hermes-voice-bridge (:8000)  │
-│ openWakeWord    │                    │   ├─▶ hermes-ears  (:9000)  │  faster-whisper STT
-│ + VAD + mic     │◀───────────────── │   ├─▶ Hermes VPS (your LLM)  │
-│ + speaker       │   wav (reply)      │   └─▶ hermes-mouth (:9001)  │  piper TTS
-└────────────────┘                    └──────────────────────────────┘
+┌──────────────┐     ┌──────────────────┐     ┌────────────┐
+│  Satellite    │────▶│  Hub (docker)    │────▶│  Hermes    │
+│  (Raspberry Pi)│    │  faster-whisper  │     │  VPS (LLM) │
+│  openWakeWord │     │  piper TTS       │     │            │
+│  VAD + mic    │     │  Honcho memory    │     │            │
+└──────────────┘     └──────────────────┘     └────────────┘
+         ▲                                          │
+         │              ◀───────────────────────────┘
+         │                 TTS audio response
+         │
+  Tailscale mesh VPN (all traffic)
 ```
 
-Wake-word detection happens locally on each Pi (openWakeWord is light enough
-for a Pi 4/5), so nothing streams anywhere until the wake word actually
-fires. Only the post-wake utterance and the spoken reply cross the network,
-both over your Tailscale mesh.
+## Documentation
 
-## 1. Deploy the hub
+| Doc | Description |
+|---|---|
+| [Hub Setup](docs/hub.md) | Deploy and configure the central processing hub |
+| [Satellite Setup](docs/satellite.md) | Flash and configure a Raspberry Pi satellite |
+| [Configuration](docs/env.md) | Full `.env` reference for all services |
 
-On your homelab box (alongside `jorahone-ai-stack`):
+---
 
-```bash
-cd hermes-satellite
-cp .env.example .env
-# edit .env: set HERMES_API_URL to your VPS's OpenAI-compatible endpoint
-# (LiteLLM router URL) and HERMES_API_KEY
+## License
 
-docker compose -f docker-compose.hub.yml up -d --build
-```
+MIT © JorahOne, LLC — see [LICENSE](LICENSE)
 
-Then pull the models the containers expect:
-
-- **Whisper**: downloads automatically on first request into the
-  `whisper-models` volume — no action needed.
-- **Piper voice**: download the `.onnx` + `.onnx.json` pair for
-  `en_US-lessac-medium` (or your preferred voice) from the
-  [piper voices repo](https://github.com/rhasspy/piper/blob/master/VOICES.md)
-  and drop both files into the `piper-voices` volume
-  (`docker cp` or mount a host folder instead of the named volume).
-
-Verify:
-
-```bash
-curl http://localhost:8000/health
-```
-
-## 2. Deploy each Pi satellite
-
-Copy the `satellite/` folder and `docker-compose.satellite.yml` to each Pi.
-
-```bash
-cp .env.example .env
-# edit .env: set BRIDGE_URL to the hub's Tailscale hostname,
-# SATELLITE_ID to something unique per room, WAKE_MODEL to your chosen word
-
-docker compose -f docker-compose.satellite.yml up -d --build
-```
-
-Grab a wake-word model: openWakeWord ships pretrained models (`hey_jarvis`,
-`alexa`, `hey_mycroft`, etc.) from
-[dscripka/openWakeWord](https://github.com/dscripka/openWakeWord) — the
-`Model()` call downloads them automatically on first run. To train a fully
-custom wake word later, the repo includes a training notebook.
-
-## 3. Talk to it
-
-Say the wake word near any Pi → it VADs the end of your utterance → sends
-audio to the hub → hub transcribes, asks your Hermes VPS, synthesizes the
-reply → satellite plays it back.
-
-## Memory (Honcho)
-
-The bridge now talks to a self-hosted Honcho instance on your other VM
-instead of sending stateless single-turn requests.
-
-- Set `HONCHO_URL` in `.env` to that VM's Tailscale hostname (e.g.
-  `http://honcho-vm.tailnet.ts.net:8000`). Leave `HONCHO_API_KEY` blank if
-  your self-hosted instance doesn't require auth.
-- One user peer (`HONCHO_USER_ID`, defaults to `jhonattan`) represents you
-  everywhere. Each satellite's `SATELLITE_ID` becomes its own Honcho
-  **session** — so different rooms/sites keep separate conversation
-  threads — but Honcho's peer representation for you is workspace-wide, so
-  what it learns in one room informs replies in another.
-- Every turn: the bridge logs your utterance to the session, pulls
-  `session.context(tokens=...)` as prompt-ready messages, sends that to your
-  Hermes VPS, then logs the reply back to the session so Honcho's deriver
-  can reason over it in the background.
-- Tune `HONCHO_CONTEXT_TOKENS` if replies start feeling like they're missing
-  earlier context or costing too many tokens per turn.
-
-No changes needed on the Honcho VM side beyond having it reachable at that
-Tailscale hostname with its API port exposed on the tailnet.
-
-## Notes / next steps
-
-- GPU: faster-whisper defaults to CPU/int8 so it doesn't fight `llama-server`
-  for your 3060's VRAM. Bump `WHISPER_DEVICE=cuda` in `.env` if you want it
-  on GPU instead.
-- For multiple Pis, just repeat step 2 with a different `SATELLITE_ID` per
-  room — they all share the same hub.
+<sub>Part of the JorahOne infrastructure ecosystem.</sub>
