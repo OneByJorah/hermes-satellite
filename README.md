@@ -4,6 +4,10 @@ Self-hosted, Jarvis-style wake-word voice pipeline that bridges to your existing
 Hermes agent (VPS). No Home Assistant, no cloud STT/TTS — everything runs over
 Tailscale.
 
+## 📸 Screenshot
+
+This is a CLI/backend-only tool. No screenshots available.
+
 ## Architecture
 
 ```

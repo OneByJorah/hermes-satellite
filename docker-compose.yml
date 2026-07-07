@@ -1,0 +1,55 @@
+version: "3.9"
+
+# ============================================================================
+# Hermes Satellite — Wake-word voice pipeline
+# JorahOne
+#
+# Runs the satellite wake-word listener and the hub ears (STT bridge).
+# ============================================================================
+
+services:
+  hub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hermes-satellite-hub
+    ports:
+      - "${HUB_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      - WHISPER_MODEL=${WHISPER_MODEL:-small.en}
+      - WHISPER_DEVICE=${WHISPER_DEVICE:-cpu}
+      - WHISPER_COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-int8}
+    volumes:
+      - whisper-cache:/root/.cache
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import httpx; httpx.get('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  satellite:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hermes-satellite
+    network_mode: host
+    env_file:
+      - .env
+    environment:
+      - BRIDGE_URL=${BRIDGE_URL:-http://localhost:8000}
+      - WAKE_MODEL=${WAKE_MODEL:-hey_jarvis}
+      - SATELLITE_ID=${SATELLITE_ID:-satellite-1}
+      - WAKE_THRESHOLD=${WAKE_THRESHOLD:-0.5}
+    devices:
+      - /dev/snd:/dev/snd
+    restart: unless-stopped
+    depends_on:
+      hub:
+        condition: service_healthy
+
+volumes:
+  whisper-cache:
