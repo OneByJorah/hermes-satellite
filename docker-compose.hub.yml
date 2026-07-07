@@ -45,6 +45,7 @@ services:
     networks:
       - hermes-net
       - stackdeploy-backend
+      - stackdeploy-tailnet
     volumes:
       - ./hub/dashboard:/app/dashboard:ro
 
@@ -52,6 +53,8 @@ networks:
   hermes-net:
     driver: bridge
   stackdeploy-backend:
+    external: true
+  stackdeploy-tailnet:
     external: true
 
 volumes:

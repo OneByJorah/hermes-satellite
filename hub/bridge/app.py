@@ -2,7 +2,7 @@ import os
 
 import httpx
 from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from honcho import Honcho
 from honcho.api_types import SessionPeerConfig
