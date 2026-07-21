@@ -131,16 +131,17 @@ Copy `.env.example` to `.env` and configure:
 |----------|---------|-------------|
 | `HERMES_API_URL` | — | Your Hermes VPS OpenAI-compatible endpoint |
 | `HERMES_API_KEY` | — | API key for Hermes VPS |
+| `HUB_BIND_IP` | `127.0.0.1` | Interface to bind hub services to (set to your Tailscale/mesh IP to reach satellites) |
 | `HONCHO_URL` | — | Honcho instance Tailscale hostname |
 | `HONCHO_API_KEY` | — | Honcho API key (blank if no auth) |
-| `HONCHO_USER_ID` | `jhonattan` | User peer ID for Honcho |
+| `HONCHO_USER_ID` | `appuser` | User peer ID for Honcho |
 | `HONCHO_CONTEXT_TOKENS` | `2048` | Context tokens for conversation history |
 
 ### Satellite Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `BRIDGE_URL` | — | Hub's Tailscale hostname (e.g., `http://hub.tailnet.ts.net:8000`) |
+| `BRIDGE_URL` | — | Hub endpoint URL (e.g., `http://hub.tailnet.ts.net:18000/satellite/utterance`) |
 | `SATELLITE_ID` | `living-room` | Unique ID per satellite/room |
 | `WAKE_MODEL` | `hey_jarvis` | Wake-word model name |
 

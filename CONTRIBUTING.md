@@ -28,7 +28,7 @@ See README.md for specific setup instructions.
 
 ## Pull Request Guidelines
 
-- Provide a clear description of changes
+- Give a clear description of changes
 - Reference any related issues
 - Ensure all tests pass
 - Keep PRs focused on a single change

@@ -14,7 +14,7 @@ services:
     networks:
       - hermes-net
     ports:
-      - "100.66.142.21:9000:9000"
+      - "${HUB_BIND_IP:-127.0.0.1}:9000:9000"
 
   hermes-mouth:
     build: ./hub/mouth
@@ -27,7 +27,7 @@ services:
     networks:
       - hermes-net
     ports:
-      - "100.66.142.21:9001:9001"
+      - "${HUB_BIND_IP:-127.0.0.1}:9001:9001"
 
   hermes-voice-bridge:
     build: ./hub/bridge
@@ -41,7 +41,7 @@ services:
       - EARS_URL=http://hermes-ears:9000
       - MOUTH_URL=http://hermes-mouth:9001
     ports:
-      - "100.66.142.21:18000:8000"   # reachable over Tailscale by every satellite (8000 taken locally)
+      - "${HUB_BIND_IP:-127.0.0.1}:18000:8000"   # reachable over Tailscale by every satellite (hub port 8000 used locally)
     networks:
       - hermes-net
       - stackdeploy-backend

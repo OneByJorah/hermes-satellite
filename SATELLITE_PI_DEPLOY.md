@@ -8,7 +8,7 @@ audio hardware. This guide prepares the image so it is ready the moment you have
 - Raspberry Pi OS (64-bit) — `uname -m` must show `aarch64`
 - Docker + compose plugin installed
 - Audio: USB mic or Pi HAT (e.g. seeed-respeaker). Test with `arecord -l`
-- The Pi must be on the **same Tailscale network** as the hub (`100.66.142.21`)
+- The Pi must be on the **same Tailscale network** as the hub
 
 ## Steps
 1. Copy this repo onto the Pi:
@@ -17,8 +17,9 @@ audio hardware. This guide prepares the image so it is ready the moment you have
    ```
 2. Create the env file:
    ```bash
-   cp .env.satellite.example .env
-   # edit .env: BRIDGE_URL should point at the hub Tailscale IP :18000
+   cp .env.example .env
+   # edit .env: BRIDGE_URL should point at the hub Tailscale hostname/IP :18000/satellite/utterance
+   # Example: BRIDGE_URL=http://hub.tailnet.ts.net:18000/satellite/utterance
    ```
 3. Build for ARM (the Dockerfile is `python:3.11-slim`, multi-arch safe):
    ```bash
@@ -34,8 +35,8 @@ audio hardware. This guide prepares the image so it is ready the moment you have
 
 ## Verify
 - `docker logs hermes-wake` should show the wake model loading (`hey_jarvis`).
-- Say the wake word, then speak. The hub (`100.66.142.21:18000/satellite/utterance`)
-  should log a `200 OK` and reply with TTS audio pulled back to the Pi.
+- Say the wake word, then speak. The hub (`${BRIDGE_URL}`) should log a `200 OK`
+  and reply with TTS audio pulled back to the Pi.
 
 ## Notes
 - `WAKE_MODEL` defaults to `hey_jarvis`; swap for any openwakeword model you drop
