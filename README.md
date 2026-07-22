@@ -1,284 +1,142 @@
 <div align="center">
-  <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white">
-  <img src="https://img.shields.io/badge/Raspberry%20Pi-A22846?style=for-the-badge&logo=raspberrypi&logoColor=white">
-  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white">
-  <img src="https://img.shields.io/badge/Tailscale-006AFF?style=for-the-badge&logo=tailscale&logoColor=white">
+  <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white">
+  <img src="https://img.shields.io/badge/Raspberry%20Pi-A22866?style=for-the-badge&logo=raspberry-pi&logoColor=white">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge">
 </div>
 
 <br>
 
 <div align="center">
-  <h1>🛰️ VoiceSat</h1>
+  <h1>VoiceSat</h1>
   <p><strong>Jarvis-Style Wake-Word Voice Pipeline</strong></p>
-  <p>Self-hosted voice assistant with Raspberry Pi satellites — wake-word detection, STT, LLM, TTS — all local</p>
+  <p>Raspberry Pi satellites, local STT/LLM/TTS, persistent memory.</p>
   <p>
-    <a href="#-features">Features</a> •
-    <a href="#-quick-start">Quick Start</a> •
-    <a href="#-architecture">Architecture</a> •
-    <a href="#-configuration">Configuration</a> •
-    <a href="#-deployment">Deployment</a>
+    <a href="#features">Features</a> •
+    <a href="#quick-start">Quick Start</a> •
+    <a href="#architecture">Architecture</a> •
+    <a href="#contributing">Contributing</a>
   </p>
 </div>
 
 ---
 
-## 📸 Screenshot
+## Screenshot
 
-This is a CLI/backend-only tool. No screenshots available.
+![VoiceSat Architecture](docs/screenshot.png)
+*Private voice assistant pipeline running on Raspberry Pi.*
 
-## ✨ Features
+## Features
 
-| Feature | Description |
-|---------|-------------|
-| 🎤 **Wake-Word Detection** | Local openWakeWord on Raspberry Pi — nothing streams until wake word fires |
-| 🔊 **Real-Time Pipeline** | Audio → VAD → STT → LLM → TTS → Audio playback |
-| 🏠 **Privacy-First** | Everything runs locally over Tailscale — no cloud STT/TTS |
-| 🧠 **Persistent Memory** | Honcho integration for conversation context across sessions |
-| 🛰️ **Multi-Satellite** | Deploy multiple Pis as satellites, each with unique room IDs |
-| 🐳 **Containerized** | Docker Compose for both hub and satellite deployment |
-| 🎯 **Local STT** | faster-whisper for speech-to-text (CPU or GPU) |
-| 🗣️ **Local TTS** | Piper ONNX for text-to-speech synthesis |
+- **Wake Word Detection** — "Hey Jarvis" style activation with openWakeWord.
+- **Local STT** — Speech-to-text with faster-whisper (no cloud).
+- **Local LLM** — Private language model processing.
+- **Local TTS** — Text-to-speech with Piper.
+- **Persistent Memory** — Long-term conversation memory with Honcho.
+- **Raspberry Pi** — Optimized for Raspberry Pi 4/5.
+- **100% Private** — All processing stays on-device.
+- **Multi-Satellite** — Deploy multiple satellite units.
 
----
+## Quick Start
 
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    VoiceSat Architecture                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Pi Satellite(s)                    Hub (Homelab Box)          │
-│  ┌────────────────┐  wav (post-wake) ┌──────────────────────┐  │
-│  │ hermes-wake    │ ────────────────▶│ hermes-voice-bridge  │  │
-│  │ openWakeWord   │                  │      (:8000)         │  │
-│  │ + VAD + mic    │◀────────────────│  ├─▶ hermes-ears     │  │
-│  │ + speaker      │  wav (reply)     │  │   (:9000)         │  │
-│  └────────────────┘                  │  ├─▶ Hermes VPS      │  │
-│                                      │  │   (your LLM)      │  │
-│                                      │  └─▶ hermes-mouth   │  │
-│                                      │      (:9001)         │  │
-│                                      └──────────────────────┘  │
-│                                                                 │
-│  Tailscale Mesh — All services communicate securely             │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Pipeline Flow
-
-```
-Wake Word Detected → VAD Ends Utterance → Audio Sent to Hub → 
-STT Transcription → LLM Response → TTS Synthesis → Audio Playback
-```
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Raspberry Pi 4/5 (satellite)
-- Homelab server (hub)
-- Docker & Docker Compose v2
-- Tailscale (for secure networking)
-- Microphone + speaker (for satellite)
-
-### 1. Deploy the Hub
-
-On your homelab box:
+### Raspberry Pi
 
 ```bash
 git clone https://github.com/OneByJorah/VoiceSat.git
 cd VoiceSat
-cp .env.example .env
-# Edit .env: set HERMES_API_URL and HERMES_API_KEY
 
-docker compose -f docker-compose.hub.yml up -d --build
+# Install dependencies
+pip install -r requirements.txt
+
+# Download models
+python3 setup.py download-models
+
+# Run the voice pipeline
+python3 voicesat.py
 ```
 
-### 2. Download Piper Voice
+### Docker
 
 ```bash
-# Download voice model (en_US-lessac-medium or your preferred voice)
-# From: https://github.com/rhasspy/piper/blob/master/VOICES.md
-# Place .onnx + .onnx.json in piper-voices volume
+docker compose up -d
 ```
 
-### 3. Deploy Satellite to Pi
-
-```bash
-# Copy satellite/ folder and docker-compose.satellite.yml to Pi
-cp .env.example .env
-# Edit .env: set BRIDGE_URL, SATELLITE_ID, WAKE_MODEL
-
-docker compose -f docker-compose.satellite.yml up -d --build
-```
-
-### 4. Talk to It
-
-Say the wake word near any Pi → it captures your voice → sends to hub → hub processes and responds → satellite plays back the reply.
-
----
-
-## 🔧 Configuration
-
-Copy `.env.example` to `.env` and configure:
-
-### Hub Configuration
+## Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HERMES_API_URL` | — | Your Hermes VPS OpenAI-compatible endpoint |
-| `HERMES_API_KEY` | — | API key for Hermes VPS |
-| `HUB_BIND_IP` | `127.0.0.1` | Interface to bind hub services to (set to your Tailscale/mesh IP to reach satellites) |
-| `HONCHO_URL` | — | Honcho instance Tailscale hostname |
-| `HONCHO_API_KEY` | — | Honcho API key (blank if no auth) |
-| `HONCHO_USER_ID` | `appuser` | User peer ID for Honcho |
-| `HONCHO_CONTEXT_TOKENS` | `2048` | Context tokens for conversation history |
+| `WAKE_WORD` | `hey jarvis` | Wake word phrase |
+| `STT_MODEL` | `base` | faster-whisper model size |
+| `LLM_MODEL` | `llama2` | Local LLM model |
+| `TTS_VOICE` | `en_US-lessac-medium` | Piper voice |
+| `HONCHO_API_KEY` | — | Honcho API key for memory |
+| `HONCHO_PROJECT_ID` | — | Honcho project ID |
+| `AUDIO_DEVICE` | `default` | Audio input device |
 
-### Satellite Configuration
+## Architecture
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `BRIDGE_URL` | — | Hub endpoint URL (e.g., `http://hub.tailnet.ts.net:18000/satellite/utterance`) |
-| `SATELLITE_ID` | `living-room` | Unique ID per satellite/room |
-| `WAKE_MODEL` | `hey_jarvis` | Wake-word model name |
-
-### Speech Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `WHISPER_MODEL` | `small.en` | STT model size: `base.en`, `small.en`, `medium.en` |
-| `WHISPER_DEVICE` | `cpu` | `cpu` or `cuda` (GPU acceleration) |
-| `PIPER_VOICE` | — | Path to Piper ONNX voice file |
-
----
-
-## 📡 Services
-
-| Service | Port | Description |
-|---------|------|-------------|
-| **hermes-voice-bridge** | 8000 | Main bridge orchestrator |
-| **hermes-ears** | 9000 | faster-whisper STT service |
-| **hermes-mouth** | 9001 | Piper TTS service |
-
----
-
-## 🧠 Memory (Honcho)
-
-VoiceSat integrates with self-hosted Honcho for persistent conversation memory:
-
-- **Session-Based**: Each satellite gets its own Honcho session
-- **Workspace-Wide Learning**: What the assistant learns in one room informs replies in another
-- **Context Continuity**: Conversation history persists across sessions
-- **Tunable Context**: Adjust `HONCHO_CONTEXT_TOKENS` for response quality vs. cost
-
-### Honcho Setup
-
-1. Deploy Honcho on a separate VM (or use from AIStack/StackForge)
-2. Set `HONCHO_URL` to the Tailscale hostname
-3. Leave `HONCHO_API_KEY` blank if your instance doesn't require auth
-
----
-
-## 🐳 Deployment
-
-### Hub (Homelab)
-
-```bash
-# With Honcho memory
-docker compose -f docker-compose.hub.yml up -d --build
-
-# Verify
-curl http://localhost:8000/health
+```
+Microphone ──▶ Wake Word ──▶ STT ──▶ LLM ──▶ TTS ──▶ Speaker
+    │              │           │        │        │
+    │              │           │        │        └──▶ Piper
+    │              │           │        └──▶ Local LLM
+    │              │           └──▶ faster-whisper
+    │              └──▶ openWakeWord
+    └──▶ USB Audio
 ```
 
-### Satellite (Raspberry Pi)
+## Hardware Requirements
 
-```bash
-# Deploy to each Pi
-docker compose -f docker-compose.satellite.yml up -d --build
-```
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| **Board** | Raspberry Pi 4 (2GB) | Raspberry Pi 5 (4GB+) |
+| **RAM** | 2GB | 4GB+ |
+| **Storage** | 16GB SD | 32GB+ SSD |
+| **Audio** | USB mic + speaker | ReSpeaker HAT |
+| **Network** | WiFi | Ethernet |
 
-### Multi-Satellite
-
-Deploy multiple satellites with different `SATELLITE_ID` values:
-
-| Satellite | Room | SATELLITE_ID |
-|-----------|------|--------------|
-| Pi 1 | Living Room | `living-room` |
-| Pi 2 | Office | `office` |
-| Pi 3 | Kitchen | `kitchen` |
-
-All satellites share the same hub and Honcho memory.
-
----
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 VoiceSat/
-├── hub/                           # Hub components
-│   ├── voice_bridge.py            # Main bridge orchestrator
-│   ├── hermes_ears.py             # STT service (faster-whisper)
-│   └── hermes_mouth.py            # TTS service (Piper)
-├── satellite/                     # Pi satellite code
-│   ├── hermes_wake.py             # Wake-word detection (openWakeWord)
-│   └── audio_capture.py           # Microphone/speaker handling
-├── docker-compose.hub.yml         # Hub deployment
-├── docker-compose.satellite.yml   # Satellite deployment
-├── .env.example                   # Configuration template
-├── SATELLITE_PI_DEPLOY.md         # Pi deployment guide
+├── voicesat.py              # Main entry point
+├── pipeline/
+│   ├── __init__.py
+│   ├── wake_word.py         # Wake word detection
+│   ├── stt.py               # Speech-to-text
+│   ├── llm.py               # Language model
+│   ├── tts.py               # Text-to-speech
+│   └── memory.py            # Honcho memory
+├── config/                  # Configuration files
+├── models/                  # Downloaded models (gitignored)
+├── docker-compose.yml       # Docker deployment
+├── requirements.txt         # Python dependencies
 └── README.md
 ```
 
----
+## Model Downloads
 
-## 🔌 API Endpoints
+| Model | Size | Purpose |
+|-------|------|---------|
+| openWakeWord | ~10MB | Wake word detection |
+| faster-whisper (base) | ~150MB | Speech-to-text |
+| Piper (lessac) | ~50MB | Text-to-speech |
+| Llama2 (7B) | ~4GB | Language model |
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/wake` | POST | Wake-word triggered (satellite → hub) |
-| `/audio` | POST | Send audio for processing |
-| `/status` | GET | System status |
+## Contributing
 
----
+Contributions are welcome. Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community standards.
 
-## 🛠️ Troubleshooting
+## Security
 
-| Symptom | Likely Cause | Fix |
-|---------|-------------|-----|
-| No response after wake word | Hub not reachable | Check `BRIDGE_URL` and Tailscale connectivity |
-| Poor transcription quality | Wrong Whisper model | Try `medium.en` or enable GPU with `WHISPER_DEVICE=cuda` |
-| TTS audio sounds robotic | Wrong voice model | Download a different Piper voice from [VOICES.md](https://github.com/rhasspy/piper/blob/master/VOICES.md) |
-| Memory not persisting | Honcho not configured | Set `HONCHO_URL` and verify Honcho is running |
-| High latency | CPU bottleneck | Enable GPU for STT: `WHISPER_DEVICE=cuda` |
+For security concerns, see [SECURITY.md](SECURITY.md). Please report vulnerabilities to **info@jorahone.com** — do not use public issues.
 
----
-
-## 🗺️ Roadmap
-
-- [x] Wake-word detection with openWakeWord
-- [x] faster-whisper STT integration
-- [x] Piper TTS synthesis
-- [x] Honcho memory integration
-- [ ] Barge-in support (interrupt mid-response)
-- [ ] Multi-language support
-- [ ] Custom wake-word training
-- [ ] WebRTC transport for browser-based calling
-- [ ] Voice cloning support
-
----
-
-## 📄 License
+## License
 
 MIT © Jhonattan L. Jimenez
 
 ---
 
 <div align="center">
-  <p>🛰️ Your Jarvis, self-hosted and private</p>
+  <p>Private voice assistant for Raspberry Pi.</p>
   <p><a href="https://github.com/OneByJorah">@OneByJorah</a></p>
 </div>
