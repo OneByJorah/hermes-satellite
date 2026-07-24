@@ -15,3 +15,6 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
+
+# OneByJorah portfolio tooling
+.venv-screenshot/
